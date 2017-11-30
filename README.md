@@ -1,0 +1,2 @@
+# matchTicker
+Sidebar Match Ticker

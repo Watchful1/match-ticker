@@ -32,7 +32,7 @@ def make_time(timestamp):
     current_time = time.time()
 
     if current_time > timestamp:
-        return '-'
+        return '**LIVE**'
 
     time_diff = timestamp - current_time
 

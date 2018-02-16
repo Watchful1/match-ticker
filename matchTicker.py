@@ -2,41 +2,38 @@ import requests
 import praw
 import re
 from config import data as config
-from config import flair_data
+from config import flairdata
 from string import Template
 import time
 
-matchTemplate = Template('>[](${link})\n>###${event}\n>###${time}\n>###${team1}\n>###${team2}\n>###${flair1}\n>###${'
-                         'flair2}\n\n[](#separator)\n\n')
+matchTemplate = Template('>[](${link})\n>###${event}\n>###${time}\n>###${team1}\n>###${team2}\n>###${flair1}\n>###${flair2}\n\n[](#separator)\n\n')
 
-
-def get_data():
+def getData():
     try:
-        data = requests.get(config['config']['overggupcoming'],
-                            headers={"User-Agent": 'r/competitiveoverwatch sidebar match ticker'})
+        data = requests.get(config['config']['overggupcoming'],  headers = {"User-Agent": 'r/competitiveoverwatch sidebar match ticker'})
         data.raise_for_status()
         data = data.json()
         return data
     except:
         return None
-
-
-def find_flair_by_name(team_name):
-    for key, flair in flair_data['flairs'].items():
-        if flair['name'].lower() == team_name.lower():
+        
+        
+def findFlairByName(teamname):
+    teamname = ''.join(x for x in teamname.lower() if x.isalnum())
+    for key, flair in flairdata['flairs'].items():
+        listname = ''.join(x for x in flair['name'].lower() if x.isalnum())
+        if listname == teamname:
             return '[](#teams-c' + flair['col'] + '-r' + flair['row'] + ')'
     return '[](#noflair)'
-
-
-def make_time(timestamp):
-    current_time = time.time()
-
-    if current_time > timestamp:
+        
+        
+def makeTime(timestamp):
+    currentTime = time.time()
+    if currentTime > timestamp:
         return '**LIVE**'
-
-    time_diff = timestamp - current_time
-
-    m, s = divmod(time_diff, 60)
+    timeDiff = timestamp - currentTime
+    
+    m, s = divmod(timeDiff, 60)
     h, m = divmod(m, 60)
     d, h = divmod(h, 24)
 
@@ -49,65 +46,55 @@ def make_time(timestamp):
     else:
         return str(int(m)) + 'm'
 
-
-def make_match_string(match_item):
-    time_string = make_time(int(match_item['timestamp']))
-    if not time_string:
+    
+def makeMatchString(matchItem):
+    time = makeTime(int(matchItem['timestamp']))
+    if not time:
         return None
 
     mapping = dict()
-    mapping['link'] = match_item['match_link']
-    mapping['event'] = match_item['event_name']
-    mapping['time'] = time_string
-    mapping['team1'] = match_item['teams'][0]['name']
-    mapping['team2'] = match_item['teams'][1]['name']
-    mapping['flair1'] = find_flair_by_name(mapping['team1'])
-    mapping['flair2'] = find_flair_by_name(mapping['team2'])
-
-    match_string = matchTemplate.substitute(mapping)
-    return match_string
-
-
-def make_ticker_string(match_data):
-    ticker_string = ''
-    for index, matchItem in enumerate(match_data):
-        match_string = make_match_string(matchItem)
-
-        if not match_string:
+    mapping['link'] = matchItem['match_link']
+    mapping['event'] = matchItem['event_name']
+    mapping['time'] = time
+    mapping['team1'] = matchItem['teams'][0]['name']
+    mapping['team2'] = matchItem['teams'][1]['name']
+    if not mapping['team1'] or not mapping['team2']:
+        return None
+    mapping['flair1'] = findFlairByName(mapping['team1'])
+    mapping['flair2'] = findFlairByName(mapping['team2'])
+    
+    matchString = matchTemplate.substitute(mapping)
+    return matchString
+    
+def makeTickerString(matchData):
+    tickerString = ''
+    count = 0
+    for matchItem in matchData:
+        matchString = makeMatchString(matchItem)
+        if not matchString:
             continue
-
-        ticker_string += match_string
-
-        if index == 5:
+        tickerString += matchString
+        count += 1
+        if count == 5:
             break
-
-    return ticker_string
-
-
-def update_sidebar(ticker_string):
-    reddit_praw = praw.Reddit(client_id=config['creds']['redditBotClientId'],
-                              client_secret=config['creds']['redditBotClientSecret'],
-                              redirect_uri=config['creds']['redditBotRedirectURI'],
-                              user_agent='rankification by u/jawoll', username=config['creds']['redditBotUserName'],
-                              password=config['creds']['redditBotPassword'])
-    subreddit = reddit_praw.subreddit(config['config']['subreddit'])
+    return tickerString
+    
+def updateSidebar(tickerString):
+    redditPraw = praw.Reddit(client_id=config['creds']['redditBotClientId'], client_secret=config['creds']['redditBotClientSecret'], redirect_uri=config['creds']['redditBotRedirectURI'], user_agent='rankification by u/jawoll', username = config['creds']['redditBotUserName'], password = config['creds']['redditBotPassword'])
+    subreddit = redditPraw.subreddit(config['config']['subreddit'])
     settings = subreddit.mod.settings()
     sidebar = settings['description']
-
-    sidebar = re.sub('(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))', r'\1' + ticker_string + r'\3', sidebar,
-                     flags=re.M | re.DOTALL)
-
+    
+    sidebar = re.sub('(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))',r'\1' + tickerString + r'\3',sidebar,flags=re.M|re.DOTALL)
+    
     subreddit.mod.update(description=sidebar)
-
-
+    
 def main():
     while True:
-        data = get_data()
+        data = getData()
         if data:
-            ticker_string = make_ticker_string(data['matches'])
-            update_sidebar(ticker_string)
-
-        time.sleep(10 * 60)
-
-
+            tickerString = makeTickerString(data['matches'])
+            updateSidebar(tickerString)
+    
+        time.sleep(10*60)
 main()

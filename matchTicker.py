@@ -1,26 +1,71 @@
 import requests
 import praw
 import re
-from config import data as config
 from string import Template
 import time
+import logging.handlers
+import os
+import json
+import sys
+import traceback
+import configparser
 
 matchTemplate = Template('>[](${link})\n>###${event}\n>###${time}\n>###${team1}\n>###${team2}\n>###${flair1}\n>###${flair2}\n\n[](#separator)\n\n')
-flairdata = config['flair']
+overggupcoming = "https://api.over.gg/matches/upcoming"
+SUBREDDIT = "Competitiveoverwatch"
+USER_AGENT = "Sidebar ticker (u/Watchful1)"
+LOG_LEVEL = logging.INFO
+
+with open("flairs.json") as raw_flair_data:
+    flair_data = json.load(raw_flair_data)
 
 
-def get_data():
-    try:
-        result_data = requests.get(config['config']['overggupcoming'],  headers={"User-Agent": config['config']['user-agent']})
-        result_data.raise_for_status()
-        return result_data.json()
-    except Exception:
-        return None
+LOG_FOLDER_NAME = "logs"
+if not os.path.exists(LOG_FOLDER_NAME):
+    os.makedirs(LOG_FOLDER_NAME)
+LOG_FILENAME = LOG_FOLDER_NAME+"/"+"bot.log"
+LOG_FILE_BACKUPCOUNT = 5
+LOG_FILE_MAXSIZE = 1024 * 1024 * 16
+
+log = logging.getLogger("bot")
+log.setLevel(LOG_LEVEL)
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+log_stderrHandler = logging.StreamHandler()
+log_stderrHandler.setFormatter(log_formatter)
+log.addHandler(log_stderrHandler)
+if LOG_FILENAME is not None:
+    log_fileHandler = logging.handlers.RotatingFileHandler(
+        LOG_FILENAME,
+        maxBytes=LOG_FILE_MAXSIZE,
+        backupCount=LOG_FILE_BACKUPCOUNT)
+    log_fileHandler.setFormatter(log_formatter)
+    log.addHandler(log_fileHandler)
+
+once = False
+user = None
+if len(sys.argv) >= 2:
+    user = sys.argv[1]
+    for arg in sys.argv:
+        if arg == 'once':
+            once = True
+        elif arg == 'debug':
+            log.setLevel(logging.DEBUG)
+else:
+    log.error("No user specified, aborting")
+    sys.exit(0)
+
+try:
+    r = praw.Reddit(
+        user,
+        user_agent=USER_AGENT)
+except configparser.NoSectionError:
+    log.error("User "+user+" not in praw.ini, aborting")
+    sys.exit(0)
 
 
 def find_flair_by_name(team_name):
     team_name = ''.join(x for x in team_name.lower() if x.isalnum())
-    for key, flair in flairdata['flairs'].items():
+    for key, flair in flair_data['flairs'].items():
         list_name = ''.join(x for x in flair['name'].lower() if x.isalnum())
         if list_name == team_name:
             return '[](#teams-c' + flair['col'] + '-r' + flair['row'] + ')'
@@ -66,38 +111,37 @@ def make_match_string(match_item):
     return matchTemplate.substitute(mapping)
 
 
-def make_ticker_string(match_data):
-    ticker_string = ''
-    count = 0
-    for match_item in match_data:
-        match_string = make_match_string(match_item)
-        if not match_string:
-            continue
-        ticker_string += match_string
-        count += 1
-        if count == 5:
-            break
-    return ticker_string
-
-
-def update_sidebar(ticker_string):
-    reddit_praw = praw.Reddit(config['config']['account'], user_agent=config['config']['user-agent'])
-    subreddit = reddit_praw.subreddit(config['config']['subreddit'])
-    settings = subreddit.mod.settings()
-    sidebar = settings['description']
-    
-    sidebar = re.sub(r"(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))',r'\1" + ticker_string + r"\3", sidebar, flags=re.M | re.DOTALL)
-    
-    subreddit.mod.update(description=sidebar)
-
-
 while True:
     try:
-        data = get_data()
-        if data:
-            ticker_string = make_ticker_string(data['matches'])
-            update_sidebar(ticker_string)
-    except Exception:
-        pass
+        log.debug("Starting run")
+        result_data = requests.get(overggupcoming, headers={"User-Agent": USER_AGENT})
+        result_data.raise_for_status()
+        data = result_data.json()
+
+        ticker_string = ''
+        count = 0
+        for match_item in data['matches']:
+            log.debug(f"Match: {match_item['teams'][0]['name']} vs {match_item['teams'][1]['name']}")
+            match_string = make_match_string(match_item)
+            if not match_string:
+                continue
+            ticker_string += match_string
+            count += 1
+            if count == 5:
+                break
+
+        sub = r.subreddit(SUBREDDIT)
+        settings = sub.mod.settings()
+        sidebar = settings['description']
+
+        sidebar = re.sub(r"(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))',r'\1" + ticker_string + r"\3", sidebar, flags=re.M | re.DOTALL)
+
+        sub.mod.update(description=sidebar)
+    except Exception as err:
+        log.warning("Hit an error in main loop")
+        log.warning(traceback.format_exc())
+
+    if once:
+        break
 
     time.sleep(10*60)

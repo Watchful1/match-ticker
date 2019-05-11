@@ -25,8 +25,8 @@ def find_flair_by_name(team_name):
         if list_name == team_name:
             return '[](#teams-c' + flair['col'] + '-r' + flair['row'] + ')'
     return '[](#noflair)'
-        
-        
+
+
 def make_time(timestamp):
     current_time = time.time()
     if current_time > timestamp:

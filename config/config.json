@@ -1,4 +1,6 @@
 {
 	"overggupcoming": "https://api.over.gg/matches/upcoming",
-	"subreddit": "Competitiveoverwatch"
+	"subreddit": "Competitiveoverwatch",
+	"account": "OWMatchThreads",
+	"user-agent": "Sidebar ticker (u/Watchful1)"
 }

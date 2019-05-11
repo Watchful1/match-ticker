@@ -134,9 +134,10 @@ while True:
         settings = sub.mod.settings()
         sidebar = settings['description']
 
-        sidebar = re.sub(r"(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))',r'\1" + ticker_string + r"\3", sidebar, flags=re.M | re.DOTALL)
+        sidebar = re.sub(r"(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))", r"\1" + ticker_string + r"\3", sidebar, flags=re.M | re.DOTALL)
 
         sub.mod.update(description=sidebar)
+        log.debug("Run complete")
     except Exception as err:
         log.warning("Hit an error in main loop")
         log.warning(traceback.format_exc())

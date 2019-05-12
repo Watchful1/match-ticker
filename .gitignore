@@ -6,3 +6,4 @@ __pycache__/*
 *.ini
 src/__pycache__/
 Pipfile.lock
+flairs.json

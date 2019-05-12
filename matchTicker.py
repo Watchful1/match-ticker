@@ -12,12 +12,10 @@ import configparser
 
 matchTemplate = Template('>[](${link})\n>###${event}\n>###${time}\n>###${team1}\n>###${team2}\n>###${flair1}\n>###${flair2}\n\n[](#separator)\n\n')
 overggupcoming = "https://api.over.gg/matches/upcoming"
+FLAIR_LIST = "http://rcompetitiveoverwatch.com/static/flairs.json"
 SUBREDDIT = "Competitiveoverwatch"
 USER_AGENT = "Sidebar ticker (u/Watchful1)"
 LOG_LEVEL = logging.INFO
-
-with open("flairs.json") as raw_flair_data:
-    flair_data = json.load(raw_flair_data)
 
 
 LOG_FOLDER_NAME = "logs"
@@ -61,6 +59,16 @@ try:
 except configparser.NoSectionError:
     log.error("User "+user+" not in praw.ini, aborting")
     sys.exit(0)
+
+try:
+    response = requests.get(url=FLAIR_LIST, headers={'User-Agent': USER_AGENT})
+    with open("flairs.json", 'w') as raw_flair_data:
+        raw_flair_data.write(response.text)
+except Exception as err:
+    log.warning("Flair load request failed")
+
+with open("flairs.json", 'r') as raw_flair_data:
+    flair_data = json.load(raw_flair_data)
 
 
 def find_flair_by_name(team_name):

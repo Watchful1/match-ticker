@@ -12,7 +12,7 @@ import configparser
 
 matchTemplate = Template('>[](${link})\n>###${event}\n>###${time}\n>###${team1}\n>###${team2}\n>###${flair1}\n>###${flair2}\n\n[](#separator)\n\n')
 overggupcoming = "https://api.over.gg/matches/upcoming"
-FLAIR_LIST = "http://rcompetitiveoverwatch.com/static/flairs.json"
+FLAIR_LIST = "http://rcompetitiveoverwatch.com/static/data/flairs.json"
 SUBREDDIT = "Competitiveoverwatch"
 USER_AGENT = "Sidebar ticker (u/Watchful1)"
 LOG_LEVEL = logging.INFO
@@ -73,7 +73,7 @@ with open("flairs.json", 'r') as raw_flair_data:
 
 def find_flair_by_name(team_name):
     team_name = ''.join(x for x in team_name.lower() if x.isalnum())
-    for key, flair in flair_data['flairs'].items():
+    for key, flair in flair_data.items():
         list_name = ''.join(x for x in flair['name'].lower() if x.isalnum())
         if list_name == team_name:
             return '[](#teams-c' + flair['col'] + '-r' + flair['row'] + ')'

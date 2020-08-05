@@ -138,13 +138,12 @@ while True:
             if count == 5:
                 break
 
-        sub = r.subreddit(SUBREDDIT)
-        settings = sub.mod.settings()
-        sidebar = settings['description']
+        wikiPage = r.subreddit(SUBREDDIT).wiki['config/sidebar']
+        sidebar = wikiPage.content_md
 
-        sidebar = re.sub(r"(\[\]\(#mtstart\)\n)(.*)(\[\]\(#mtend\))", r"\1" + ticker_string + r"\3", sidebar, flags=re.M | re.DOTALL)
+        new_sidebar = re.sub(r"(\[\]\(#mtstart\)\r?\n)(.*)(\[\]\(#mtend\))", r"\1" + ticker_string + r"\3", sidebar, flags=re.M | re.DOTALL)
 
-        sub.mod.update(description=sidebar)
+        wikiPage.edit(new_sidebar)
         log.debug("Run complete")
     except Exception as err:
         log.warning("Hit an error in main loop")
